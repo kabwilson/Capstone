@@ -1,0 +1,97 @@
+---
+title: "Capstone Project"
+author: "Katie Wilson"
+date: "December 4, 2017"
+output: html_document
+---
+
+Would you know how to travel around New York City as a pedestrian the first time you ever visited? Neither would I. Certain areas of the city are clearly more populous, and probably more dangerous, for someone traveling to New York who has never been there before. In this project, I will attempt to identify the areas in each of the five boroughs of New York where the majority of accidents happen and what days and times are the safest for pedestrians in those more dangerous areas.
+
+Load libraries used
+
+```{r load_libraries, message=FALSE}
+library(tidyr)
+library(ggplot2)
+library(dplyr)
+library(readr)
+library(rgdal)
+library(maptools)
+library(ggmap)
+library(maps)
+library(jsonlite)
+library(lubridate)
+```
+
+The New York City Department of Transportation website has open data available to the public with historical records of motor vehicle accidents. Two of these files have recorded all fatalities and injuries from 2011 to 2016. These files are in json format which can be directly read into R.
+
+```{r download_data}
+json_uri <- "http://www.nyc.gov/html/dot/downloads/misc/fatality_all_monthly.json"
+ny_fatalities_js <- fromJSON(txt = json_uri, flatten = TRUE)
+ny_fatalities_df <- ny_fatalities_js$features
+
+json_uri2 <- "http://www.nyc.gov/html/dot/downloads/misc/injury_all_monthly.json"
+ny_injuries_js <- fromJSON(txt = json_uri2, flatten = TRUE)
+ny_injuries_df <- ny_injuries_js$features
+```
+
+With the format of these files, there needs to be some tidying done in order for R to read it as a dataframe and recognize the coordinates as geometric properites. They are currently being read in as a list within a column which does not convert to a dataframe. In order to correct this, each part of the list needs to be read into its own column. This saves the coordinates into a longitude and latitude column. These need to be read back into the original dataframe and the original list column can be deleted to minimize the size. I also change the properties of a few other columns in order to more easily edit the data.
+
+```{r coordinates}
+x <- rep(NA, times = length(ny_fatalities_df$geometry.coordinates))
+y <- rep(NA, times = length(ny_fatalities_df$geometry.coordinates))
+for(i in 1:length(ny_fatalities_df$geometry.coordinates)) {
+  x[i] <- ny_fatalities_df$geometry.coordinates[[i]][1]
+  y[i] <- ny_fatalities_df$geometry.coordinates[[i]][2]
+}
+
+z <- rep(NA, times = length(ny_injuries_df$geometry.coordinates))
+m <- rep(NA, times = length(ny_injuries_df$geometry.coordinates))
+for(i in 1:length(ny_injuries_df$geometry.coordinates)) {
+  z[i] <- ny_injuries_df$geometry.coordinates[[i]][1]
+  m[i] <- ny_injuries_df$geometry.coordinates[[i]][2]
+}
+
+ny_fatalities_df <- ny_fatalities_df %>% 
+  mutate(latitude = x,
+         longitude = y,
+         geometry.coordinates = NULL,
+         properties.YR = as.integer(properties.YR),
+         properties.MN = as.integer(properties.MN))
+
+ny_injuries_df <- ny_injuries_df %>% 
+  mutate(latitude = z,
+         longitude = m,
+         geometry.coordinates = NULL,
+         properties.YR = as.integer(properties.YR),
+         properties.MN = as.integer(properties.MN))
+```
+
+The date in this dataframe is not in a format that will be able to be plotted. There are a few things that need to be done to get it into that state: adding in a column with the day, uniting the columns with the month, day, and year, read that column in as a date, and remove any rows that do not have a date associated with them.
+
+```{r Date_edit}
+ny_fatalities_df$properties.Day <- 1L
+ny_injuries_df$properties.Day <- 1L
+ny_fatalities_df <- unite(ny_fatalities_df, "FullDate",
+                               c("properties.YR", "properties.MN", "properties.Day"), sep = "-")
+ny_injuries_df <- unite(ny_injuries_df, "FullDate",
+                             c("properties.YR", "properties.MN", "properties.Day"), sep = "-")
+ny_fatalities_df$FullDate <- as.Date(ny_fatalities_df$FullDate, format = "%Y-%m-%d")
+ny_injuries_df$FullDate <- as.Date(ny_injuries_df$FullDate, format = "%Y-%m-%d")
+sum(is.na(ny_fatalities_df))
+ny_fatalities_df <- ny_fatalities_df[complete.cases(ny_fatalities_df$FullDate), ]
+sum(is.na(ny_injuries_df))
+```
+
+Since the sum of the is.na(ny_injuries_df) = 0, there are no rows to be removed from that one as there were in the fatalities dataframe. From here, we are able to do a general, basic plot of each dataframe by the date.
+
+```{r basic_plot, fig.height=5, fig.width=7}
+ggplot(ny_fatalities_df, aes(x = FullDate, y = properties.Fatalities)) +
+  geom_point()
+ggplot(ny_injuries_df, aes(x = FullDate, y = properties.Injuries)) +
+  geom_point()
+```
+
+I would like to be able to look at this data on one plot. In order to do that, I need to confirm that there are no duplicates between the two files. Since there is already an identifier for the location, 
+
+** Make sure to go into an explanation of what other datasets I explored and why we chose the data we did.
+** Footnotes for further exploration: precipitation or weather data, location of tourist attractions in relation to these "at-risk" intersections or areas and in relation to being in a car or being on foot
