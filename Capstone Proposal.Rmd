@@ -5,36 +5,28 @@ date: "December 10, 2017"
 output: html_document
 ---
 
-Would you know how to travel around New York City as a pedestrian the first time you ever visited? Neither would I. Certain areas of the city are clearly more populous, and probably more dangerous, for someone traveling to New York who has never been there before. In this project, I will attempt to identify the areas in each of the five boroughs of New York where the majority of accidents happen and what days and times are the safest for pedestrians in those more dangerous areas.
+#####_Would you know how to travel around New York City as a pedestrian the first time you ever visited? Neither would I. Certain areas of the city are clearly more populous, and probably more dangerous, for someone traveling to New York who has never been there before. In this project, I will attempt to identify the areas in each of the five boroughs of New York where the majority of accidents happen and what days and times are the safest for pedestrians in those more dangerous areas._
 
-What is the problem you want to solve?
+####What is the problem you want to solve?
 
 I want to give travelers and tourists access to data showing what areas to avoid and when.
 
-Who is your client and why do they care about this problem? In other words, what will your client DO or DECIDE based on your analysis that they wouldn’t have otherwise?
+####Who is your client and why do they care about this problem? In other words, what will your client DO or DECIDE based on your analysis that they wouldn’t have otherwise?
 
 My client is travelers and tourists - people who want to know a better way to travel around New York City. As research develops around this project, this could also form the basis for a travel app to alert you based on your location and time of day.
 
-What data are you going to use for this? How will you acquire this data?
+####What data are you going to use for this? How will you acquire this data?
 
 There is open data from the Department of Transportation describing this type of data as well as the NYPD. Other data that could be used to further this research would be historical precipitation amounts, speed limits in each of the boroughs, tourist volumes during each month of the year, or locations of tourist attractions across the city.
 
 The data initially pulled from the DOT is not very clean. There are two main files – one of which describes injuries involved in each of the accidents broken out by pedestrians, motor vehicles, and bicyclists and the other based on fatalities broken down in a similar fashion. This data specifically would require cleaning and summarizing to determine any conclusions.
 
-Speed limit data also exists on the DOT website, but is also rather messy. Because speed limits exist along sections of roads, this data includes sets of coordinates which, I assume, at this point, are start and end points for each speed limit. This will require a significant amount of wrangling and may or may not be able to be accomplished in this introductory course of data science.
+Speed limit data also exists on the DOT website, but is also rather messy. Because speed limits exist along sections of roads, this data includes sets of coordinates which, I assume, at this point, are start and end points for each speed limit. This will require a significant amount of wrangling and may or may not be able to be accomplished through the skills learned in this introductory course of data science.
 
-Other accident data from the City of New York website includes over a million lines of data expounding on the same parameters as that from the DOT. More research into this is needed to see if this will be more beneficial than the data listed above.
+Many different forms of precipitation data are available on the NOAA website as well as the City of New York Weather website. Some of these summaries come in terms of monthly rainfall, some daily, and others hourly. Some are provided in PDF and others in excel or a csv format. Finding the right type of data to correlate to the traffic data is going to be a challenge, but one I belive will add invaluable insight into my project.
 
 As this data is compiled, wrangled, and summarized, I will be using multiple forms of both statistical and graphical analysis to determine where the trends lie. It will first be scrubbed for any potential outliers and any lines lacking necessary data (such as dates or location) will be excluded. Graphically, I will be including heat maps for the day of week and time of day as well as geographically over the city of New York. Representations of the data over the various years included as well as all five of the boroughs will be utilized and any further conclusions that can be made from these initial summarizations will be researched in addition.
 
-What are your deliverables? Typically, this would include code, along with a paper and/or a slide deck.
+####What are your deliverables? Typically, this would include code, along with a paper and/or a slide deck.
 
-I will be writing an RMD document to explain the process used and provide the code and source data. I will also be producing a slide deck to display the data in an understandable and digestible format.
-
-Submission Instructions:
-
-Write a project proposal - a short (1-2 page) document written in R Markdown covering the questions above. 
-Create a github repository for your Capstone Project.
-Add this proposal to the github repository for your project. 
-Submit a link to this repository.
-Once your mentor has approved your proposal, please share the github repository URL on the community and ask for feedback.
+I will be writing an RMD document to explain the process used and provide the code and source data. I will also be producing a slide deck to display the data in an understandable and digestible format as well as a paper to explain the process and results.
