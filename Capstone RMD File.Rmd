@@ -5,7 +5,10 @@ date: "December 4, 2017"
 output: html_document
 ---
 
-Would you know how to travel around New York City as a pedestrian the first time you ever visited? Neither would I. Certain areas of the city are clearly more populous, and probably more dangerous, for someone traveling to New York who has never been there before. In this project, I will attempt to identify the areas in each of the five boroughs of New York where the majority of accidents happen and what days and times are the safest for pedestrians in those more dangerous areas.
+_Would you know how to travel around New York City as a pedestrian the first time you ever visited? Neither would I. Certain areas of the city are clearly more populous, and probably more dangerous, for someone unfamiliar with the pace and layout of the city. In this project, I will attempt to identify the areas in each of the five boroughs of New York where the majority of accidents happen and what days and times are the safest for pedestrians in those more dangerous areas._
+
+####Section 1: Original Traffic Dataset Work
+#####Using the NYCDOT open data
 
 Load libraries used
 
@@ -91,7 +94,99 @@ ggplot(ny_injuries_df, aes(x = FullDate, y = properties.Injuries)) +
   geom_point()
 ```
 
-I would like to be able to look at this data on one plot. In order to do that, I need to confirm that there are no duplicates between the two files. Since there is already an identifier for the location, 
+Although these plots are helpful and generally informative, I would like to be able to look at the injury and fatality data on the same plot. Before combining the datasets, it is necessary to determine if there are any duplicates between the two files. There are already latitude and longitude indicators on each accident along with the month in which it occurred. The problem arises if there is more than one accident at the same location within a month. First, I used paste() to combine the date, latitude, and longitude to create a unique identifier for each accident. Second, I checked the unique count of this identifier against the length of the entire dataset. If those numbers are equal, there are no duplicates between the month and the location.
+
+```{r unique_identifier}
+ny_fatalities_df$Identifier <- 
+  paste(ny_fatalities_df$FullDate,
+        ny_fatalities_df$latitude + ny_fatalities_df$longitude,
+        sep = "")
+length(unique(ny_fatalities_df$Identifier)) == nrow(ny_fatalities_df)
+
+ny_injuries_df$Identifier <- 
+  paste(ny_injuries_df$FullDate,
+        ny_injuries_df$latitude + ny_injuries_df$longitude,
+        sep = "")
+length(unique(ny_injuries_df$Identifier)) == nrow(ny_injuries_df)
+```
+
+Because both statements for the injuries and the fatalities returned true, this identifier is in fact unique. In order to join these two datasets, full_join() is used in order to include all instances on both datasets for any of these identifiers. This new dataset is called "accident_monthly". The two totals printed from this section will show how many lines result from the combined dataset as well as how many lines between the two datasets referred to the same accident.
+
+```{r full_join}
+nrow(ny_fatalities_df) + nrow(ny_injuries_df)
+accident_monthly <- full_join(ny_fatalities_df, ny_injuries_df,
+                              by = c("Identifier" = "Identifier"))
+(nrow(ny_fatalities_df) + nrow(ny_injuries_df)) - nrow(accident_monthly)
+```
+
+A few more summary columns are necessary now that the data has been combined. The following code creates four summaries around the number of people affected in each of the categories - pedestrians, cyclists, drivers/passengers, and people total.
+
+```{r summary_columns}
+accident_monthly$PeopleAffected <- rowSums(accident_monthly[,c("properties.Fatalities",
+                                          "properties.Injuries")], na.rm = TRUE)
+accident_monthly$TotalPedestrian <- rowSums(accident_monthly[,c("properties.PedFatalit",
+                                          "properties.PedInjurie")], na.rm = TRUE)
+accident_monthly$TotalBike <- rowSums(accident_monthly[,c("properties.BikeFatali",
+                                          "properties.BikeInjuri")], na.rm = TRUE)
+accident_monthly$TotalMVO <- rowSums(accident_monthly[,c("properties.MVOFatalit",
+                                          "properties.MVOInjurie")], na.rm = TRUE)
+
+```
+
+Now that the data has been combined, we can recreate the basic plots from earlier using the full dataset. Only step that needs to still be completed is to combine all the dates from the separate datasets into one column in order to use that as the x-axis.
+
+```{r full_basic_plot, fig.height=5, fig.width=7}
+accident_monthly$FullDate.x[is.na(accident_monthly$FullDate.x)] <- (accident_monthly$FullDate.y[is.na(accident_monthly$FullDate.x)])
+ggplot(accident_monthly, aes(x = FullDate.x, y = PeopleAffected)) +
+  geom_point()
+```
+
+
+
+The following map gives a general outline for where the accidents take place. The acutal detailed mapping of the data will take place late on, but for now, this gives a good picture of the city with the fatality causing accidents. This would be rather overwhelming and not descriptive to use with the full dataset at this point.
+
+```{r basic_map, fig.height=5, fig.width=7}
+nyc_map <- get_map("new york", zoom = 10)
+ggmap(nyc_map) +
+  geom_point(data = ny_fatalities_df %>%
+               filter(properties.PedFatalit > 0),
+                      aes(x = latitude, y = longitude,
+                          colour = properties.PedFatalit),
+             alpha = 0.5, size = 0.5)
+```
+
+####Section 2: Speed Limit Data
+#####Also using data from the NYCDOT
+
+The DOT also has a great deal of information on speed limits within the city of New York. As this would help to understand whether accidents tend to happen in areas with higher or lower speed limits, I jumped at the chance to be able to input and analyze this data. It also comes in a json format which is read into R below; however, the website has one file per borough so all of the data wrangling must be done five times. In order to keep the environment clear and as much memory free as possible, all the json_uri values that were just created can be removed from the environment as they are assigned to other values. The last line of code below does just that as well as removes some of the temporary variables created earlier.
+
+
+```{r}
+json_uri3 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_bronx.json"
+speedlimits_Bronx_js <- fromJSON(txt = json_uri3, flatten = TRUE)
+speedlimits_Bronx_df <- speedlimits_Bronx_js$features
+
+json_uri4 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_brooklyn.json"
+speedlimits_Brooklyn_js <- fromJSON(txt = json_uri4, flatten = TRUE)
+speedlimits_Brooklyn_df <- speedlimits_Brooklyn_js$features
+
+json_uri5 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_manhattan.json"
+speedlimits_Manhattan_js <- fromJSON(txt = json_uri5, flatten = TRUE)
+speedlimits_Manhattan_df <- speedlimits_Manhattan_js$features
+
+json_uri6 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_queens.json"
+speedlimits_Queens_js <- fromJSON(txt = json_uri6, flatten = TRUE)
+speedlimits_Queens_df <- speedlimits_Queens_js$features
+
+json_uri7 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_statenisland.json"
+speedlimits_StatenIsland_js <- fromJSON(txt = json_uri7, flatten = TRUE)
+speedlimits_StatenIsland_df <- speedlimits_StatenIsland_js$features
+
+rm(json_uri, json_uri2, json_uri3, json_uri4, json_uri5, json_uri6, json_uri7, m, x, y, z)
+```
+
+
+
 
 ** Make sure to go into an explanation of what other datasets I explored and why we chose the data we did.
 ** Footnotes for further exploration: precipitation or weather data, location of tourist attractions in relation to these "at-risk" intersections or areas and in relation to being in a car or being on foot
