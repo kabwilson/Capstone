@@ -1,0 +1,111 @@
+---
+title: "Sorting categorical data"
+output: html_notebook
+---
+
+
+
+```{r Loading_Libraries, message=FALSE}
+library(dplyr)
+library(ggplot2)
+```
+
+Let's start by creating some data. This would be summarized counts of some categorical data…number of injuries by borough, for instance.
+
+```{r}
+monthly_sum <- data_frame(Category = letters[1:5],
+                          Amount = runif(5))
+```
+
+The variable *Category* is a character vector:
+
+```{r}
+typeof(monthly_sum$Category)
+class(monthly_sum$Category)
+```
+
+By default, *ggplot2* sorts character data in alphabetical order.
+
+```{r, fig.height=3, fig.width=5}
+monthly_sum %>% 
+ggplot(aes(y = Amount, x = Category)) +
+  geom_bar(stat = "identity")
+```
+
+To sort in another order, we need to convert *Category* to a factor. *ggplot2* will then sort in order of the levels.
+
+```{r}
+monthly_temp <- monthly_sum %>% 
+  mutate(Category = as.factor(Category))
+
+monthly_temp %>% 
+  ggplot(aes(x = Category, y = Amount)) +
+  geom_bar(stat = "identity")
+```
+
+But this hasn't changed anything, because factor levels are normally created in alphabetical order.
+
+We need to control the order of the factors. One way to do this is in a dplyr chain, where we first arrange the data in the desired order, and then convert the categorical variable to a factor with levels in the right order.
+
+```{r}
+month_sorted <- monthly_sum %>% 
+  group_by(Category) %>%               # Not needed in this example
+  summarize(Amount = last(Amount)) %>% # Not needed in this example
+  mutate(Type = "Actual") %>%          # Not needed in this example
+  arrange(-Amount) %>% 
+  mutate(Category = factor(Category, unique(Category)))
+
+month_sorted %>% 
+  ggplot(aes(x = Category, y = Amount)) +
+  geom_bar(stat = "identity")
+```
+
+The main parts of this are `arrange() %>% mutate()`. The `group_by()`, `summarize()` and `mutate()` are all going to be useful to you with your data, but not necessary for sorting the data for plotting.
+
+Note that you'll have to add or remove the negative sign in `arrange()` to get the ordering that you want.
+
+Another approach without using *dplyr* is to do essentially the same thing: arrange the levels and then convert the categorical variable to a factor with the levels in a defined order:
+
+```{r}
+monthly_sorted <- monthly_sum
+levels_order <- unique(monthly_sorted[order(monthly_sorted$Amount, decreasing = FALSE), ]$Category)
+monthly_sorted$Category <- factor(monthly_sum$Category, levels = levels_order)
+
+month_sorted %>% 
+  ggplot(aes(x = Category, y = Amount)) +
+  geom_bar(stat = "identity")
+```
+
+The advantage is that this is somewhat more flexible. For instance, suppose you wanted to plot the accidents for each vehicle_1, faceting by burrough. Since the number of accidents by vehicle type is probably different for each burrough, it would be hard to pick out the trends from the data. However, with this approach, you could order the vehicle_1 levels by accidents only within one burrough; it would then be easier to compare differences across burroughs.
+
+The bar chart is not always (maybe never) ideal for displaying such data. When category names are long, having the names on the x axis is usually cumbersome, and we need to rotate them to keep them from overlapping. This can be accomplished with `coord_flip()`, or sometimes by switching the x and y arguments to `aes()`. An even better approach, which is normally easier for audiences to read and interpret,[^1] is the dot plot.
+
+```{r}
+month_sorted %>% 
+  ggplot(aes(x = Category, y = Amount)) +
+  geom_point(stat = "identity") +
+  coord_flip()
+```
+
+With longer category names, the visual proportions on the graph are a little easier to read.
+
+However, here we really want to reverse the order of dots on the plot:
+
+```{r}
+month_sorted <- monthly_sum %>% 
+  group_by(Category) %>% 
+  summarize(Amount = last(Amount)) %>% 
+  mutate(Type = "Actual") %>% 
+  arrange(Amount) %>% 
+  mutate(Category = factor(Category, unique(Category)))
+
+month_sorted %>% 
+  ggplot(aes(x = Category, y = Amount)) +
+  geom_point(stat = "identity") +
+  coord_flip()
+```
+
+
+## References
+
+[^1]: [Dot Plots: A useful alternative to bar charts](https://www.perceptualedge.com/articles/b-eye/dot_plots.pdf)

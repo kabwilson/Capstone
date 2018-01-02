@@ -161,7 +161,7 @@ ggmap(nyc_map) +
 The DOT also has a great deal of information on speed limits within the city of New York. As this would help to understand whether accidents tend to happen in areas with higher or lower speed limits, I jumped at the chance to be able to input and analyze this data. It also comes in a json format which is read into R below; however, the website has one file per borough so all of the data wrangling must be done five times. In order to keep the environment clear and as much memory free as possible, all the json_uri values that were just created can be removed from the environment as they are assigned to other values. The last line of code below does just that as well as removes some of the temporary variables created earlier.
 
 
-```{r}
+```{r speedlimit_json}
 json_uri3 <- "http://www.nyc.gov/html/dot/downloads/misc/speed_limit_bronx.json"
 speedlimits_Bronx_js <- fromJSON(txt = json_uri3, flatten = TRUE)
 speedlimits_Bronx_df <- speedlimits_Bronx_js$features
@@ -185,6 +185,111 @@ speedlimits_StatenIsland_df <- speedlimits_StatenIsland_js$features
 rm(json_uri, json_uri2, json_uri3, json_uri4, json_uri5, json_uri6, json_uri7, m, x, y, z)
 ```
 
+In looking into the coordinate columns in this dataset, you can see that they read in as a list inside the dataframe. There isn't a lot of detail about this dataset on the website, but from a cursory look at the coordinate sections, these are most likely areas of a road that have a certain speed limit. These have been put in the dataset in list form. In order to properly view this as a dataframe, the list will need to be read into four separate columns - start latitude, start longitude, end latitude, and end longitude. The following code is an attempt to turn this list into those four separate columns using a for loop; however, as mentioned previously, there are five sets of data - one from each borough. This loop needs to be run on each of those datasets.
+
+```{r speedlimit_column_conversion}
+a <- rep(NA, times = length(speedlimits_Bronx_df$geometry.coordinates))
+b <- rep(NA, times = length(speedlimits_Bronx_df$geometry.coordinates))
+c <- rep(NA, times = length(speedlimits_Bronx_df$geometry.coordinates))
+d <- rep(NA, times = length(speedlimits_Bronx_df$geometry.coordinates))
+for(i in 1:length(speedlimits_Bronx_df$geometry.coordinates)) {
+  a[i] <- speedlimits_Bronx_df$geometry.coordinates[[i]][1]
+  b[i] <- speedlimits_Bronx_df$geometry.coordinates[[i]][2]
+  c[i] <- speedlimits_Bronx_df$geometry.coordinates[[i]][3]
+  d[i] <- speedlimits_Bronx_df$geometry.coordinates[[i]][4]
+}
+
+speedlimits_Bronx_df <- speedlimits_Bronx_df %>% 
+  mutate(start_latitude = a,
+         start_longitude = c,
+         end_latitude = b,
+         end_longitude = d,
+         geometry.coordinates = NULL)
+
+a <- rep(NA, times = length(speedlimits_Brooklyn_df$geometry.coordinates))
+b <- rep(NA, times = length(speedlimits_Brooklyn_df$geometry.coordinates))
+c <- rep(NA, times = length(speedlimits_Brooklyn_df$geometry.coordinates))
+d <- rep(NA, times = length(speedlimits_Brooklyn_df$geometry.coordinates))
+for(i in 1:length(speedlimits_Brooklyn_df$geometry.coordinates)) {
+  a[i] <- speedlimits_Brooklyn_df$geometry.coordinates[[i]][1]
+  b[i] <- speedlimits_Brooklyn_df$geometry.coordinates[[i]][2]
+  c[i] <- speedlimits_Brooklyn_df$geometry.coordinates[[i]][3]
+  d[i] <- speedlimits_Brooklyn_df$geometry.coordinates[[i]][4]
+}
+
+speedlimits_Brooklyn_df <- speedlimits_Brooklyn_df %>% 
+  mutate(start_latitude = a,
+         start_longitude = c,
+         end_latitude = b,
+         end_longitude = d,
+         geometry.coordinates = NULL)
+
+a <- rep(NA, times = length(speedlimits_Manhattan_df$geometry.coordinates))
+b <- rep(NA, times = length(speedlimits_Manhattan_df$geometry.coordinates))
+c <- rep(NA, times = length(speedlimits_Manhattan_df$geometry.coordinates))
+d <- rep(NA, times = length(speedlimits_Manhattan_df$geometry.coordinates))
+for(i in 1:length(speedlimits_Manhattan_df$geometry.coordinates)) {
+  a[i] <- speedlimits_Manhattan_df$geometry.coordinates[[i]][1]
+  b[i] <- speedlimits_Manhattan_df$geometry.coordinates[[i]][2]
+  c[i] <- speedlimits_Manhattan_df$geometry.coordinates[[i]][3]
+  d[i] <- speedlimits_Manhattan_df$geometry.coordinates[[i]][4]
+}
+
+speedlimits_Manhattan_df <- speedlimits_Manhattan_df %>% 
+  mutate(start_latitude = a,
+         start_longitude = c,
+         end_latitude = b,
+         end_longitude = d,
+         geometry.coordinates = NULL)
+
+a <- rep(NA, times = length(speedlimits_Queens_df$geometry.coordinates))
+b <- rep(NA, times = length(speedlimits_Queens_df$geometry.coordinates))
+c <- rep(NA, times = length(speedlimits_Queens_df$geometry.coordinates))
+d <- rep(NA, times = length(speedlimits_Queens_df$geometry.coordinates))
+for(i in 1:length(speedlimits_Queens_df$geometry.coordinates)) {
+  a[i] <- speedlimits_Queens_df$geometry.coordinates[[i]][1]
+  b[i] <- speedlimits_Queens_df$geometry.coordinates[[i]][2]
+  c[i] <- speedlimits_Queens_df$geometry.coordinates[[i]][3]
+  d[i] <- speedlimits_Queens_df$geometry.coordinates[[i]][4]
+}
+
+speedlimits_Queens_df <- speedlimits_Queens_df %>% 
+  mutate(start_latitude = a,
+         start_longitude = c,
+         end_latitude = b,
+         end_longitude = d,
+         geometry.coordinates = NULL)
+
+a <- rep(NA, times = length(speedlimits_StatenIsland_df$geometry.coordinates))
+b <- rep(NA, times = length(speedlimits_StatenIsland_df$geometry.coordinates))
+c <- rep(NA, times = length(speedlimits_StatenIsland_df$geometry.coordinates))
+d <- rep(NA, times = length(speedlimits_StatenIsland_df$geometry.coordinates))
+for(i in 1:length(speedlimits_StatenIsland_df$geometry.coordinates)) {
+  a[i] <- speedlimits_StatenIsland_df$geometry.coordinates[[i]][1]
+  b[i] <- speedlimits_StatenIsland_df$geometry.coordinates[[i]][2]
+  c[i] <- speedlimits_StatenIsland_df$geometry.coordinates[[i]][3]
+  d[i] <- speedlimits_StatenIsland_df$geometry.coordinates[[i]][4]
+}
+
+speedlimits_StatenIsland_df <- speedlimits_StatenIsland_df %>% 
+  mutate(start_latitude = a,
+         start_longitude = c,
+         end_latitude = b,
+         end_longitude = d,
+         geometry.coordinates = NULL)
+
+rm(a, b, c, d, i)
+```
+
+Now that all of these are converted to separate columns and the temporary variables have been removed from the environment, they can all be combined into one dataframe.
+
+```{r}
+speedlimits_NY <- bind_rows(speedlimits_Bronx_df, speedlimits_Brooklyn_df,
+                            speedlimits_Manhattan_df, speedlimits_Queens_df,
+                            speedlimits_StatenIsland_df)
+```
+
+In reviewing this dataset, it appears some of the start combinations and end combinations of coordinates are not pairing up correctly between latitude and longitude. I went back to the original datasets pulled from the DOT website and it appears that these lists are not always of length 4. Some of them go up to 14. With a lack of explanation on the website as to what these actually refer to as well as the inconsistency in lengths of this list, I'm forced to move on without this dataset. Any attempts to clean this up and make it usable extend quite far beyond the point of this project and course. Perhaps at a later time, I'll be able to come back and look into this further.
 
 
 

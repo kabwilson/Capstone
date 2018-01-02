@@ -206,7 +206,7 @@ speedlimits_NY <- speedlimits_NY %>%
 
 #read in the precipitation file from the NOAA
 #https://www.ncdc.noaa.gov/cdo-web/
-CentralPark <- read.csv('E:/Springboard/Datasets/Capstone/Central Park Precipitation.csv')
+CentralPark <- read.csv('E:/Springboard/Datasets/Capstone/Unused/Central Park Precipitation.csv')
 
 #read in the date column as an actual date using the lubridate package
 CentralPark$Date <- parse_date_time(CentralPark$DATE, orders = "ymd HM")
