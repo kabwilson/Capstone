@@ -375,7 +375,7 @@ The sum of the number of people injured is an interesting thing, but another way
 
 There are a few other defining characteristics in this dataset including the zip code/borough, the type of vehicle, and the contributing factor. A good preliminary way to summarize this data is through tables. These three are put into tables below and ordered lowest to highest.
 
-```{r}
+```{r NYPD_tables}
 boroughTable <- table(ny_df$borough)
 boroughTable[order(boroughTable)]
 vehicleTable <- table(ny_df$vehicle_type_code1)
@@ -385,3 +385,50 @@ factorTable[order(factorTable)]
 ```
 
 Usually, the most important contributors will be the top 5-10 categories depending on the distribution. There is an Unspecified category for the contributing factor and an Unknown in the vehicle table. As these do not give us any helpful trending information, they will be filtered out when we summarize the data.
+
+The first summary I would like to see is over the boroughs. There are two different null values I want to account for, the NA in the borough and the zeros in the number of persons injured/killed. To summarize correctly, I would need to apply the filters first to each individual dataset, run the summarise function, and then do a full join afterwards.
+
+```{r Summary_byBorough}
+NPI_summary <- ny_df %>% 
+  filter(borough != "", number_of_persons_injured > 0) %>% 
+  group_by(borough) %>% 
+  summarise(avgInjury = mean(number_of_persons_injured, is.na = TRUE))
+
+NPK_summary <- ny_df %>% 
+  filter(borough != "", number_of_persons_killed > 0) %>% 
+  group_by(borough) %>% 
+  summarise(avgFatality = mean(number_of_persons_killed, is.na = TRUE))
+
+Borough_summary <- full_join(NPI_summary, NPK_summary, by = "borough")
+rm(NPK_summary, NPI_summary)
+Borough_summary
+```
+
+Next, I would like to be able to see a general summary by month and year of the incident. I will have to do the same thing as above with doing a full join afterwards. This, however, will need to include unique identifiers for each month in order to make sure all the data is included from each of the tables.
+
+```{r Summary_byMonth}
+NPI_bydate <- ny_df %>% 
+  filter(borough != "", number_of_persons_injured > 0) %>% 
+  mutate(year = year(date_time)) %>% 
+  group_by(year, month, borough) %>% 
+  summarise(avgTotalInjury = mean(number_of_persons_injured, is.na = TRUE))
+
+NPK_bydate <- ny_df %>% 
+  filter(borough != "", number_of_persons_killed > 0) %>% 
+  mutate(year = year(date_time)) %>% 
+  group_by(year, month, borough) %>% 
+  summarise(avgTotalKilled = mean(number_of_persons_killed, is.na = TRUE))
+
+# Create Unique Identifiers for each summary table
+NPI_bydate$Unique <- paste(NPI_bydate$year, NPI_bydate$month,
+                           NPI_bydate$borough, sep = "")
+NPK_bydate$Unique <- paste(NPK_bydate$year, NPK_bydate$month,
+                           NPK_bydate$borough, sep = "")
+
+# Join them into a total month summary table
+mmyyyy_summary <- full_join(NPI_bydate, NPK_bydate, by = "Unique")
+
+rm(NPI_bydate, NPK_bydate)
+mmyyyy_summary
+```
+
