@@ -23,6 +23,8 @@ library(ggmap)
 library(maps)
 library(jsonlite)
 library(lubridate)
+library(RSocrata)
+library(scales)
 ```
 
 The New York City Department of Transportation website has open data available to the public with historical records of motor vehicle accidents. Two of these files have recorded all fatalities and injuries from 2011 to 2016. These files are in json format which can be directly read into R.
@@ -283,7 +285,7 @@ rm(a, b, c, d, i)
 
 Now that all of these are converted to separate columns and the temporary variables have been removed from the environment, they can all be combined into one dataframe.
 
-```{r}
+```{r speedlimit_join_datasets}
 speedlimits_NY <- bind_rows(speedlimits_Bronx_df, speedlimits_Brooklyn_df,
                             speedlimits_Manhattan_df, speedlimits_Queens_df,
                             speedlimits_StatenIsland_df)
@@ -291,7 +293,95 @@ speedlimits_NY <- bind_rows(speedlimits_Bronx_df, speedlimits_Brooklyn_df,
 
 In reviewing this dataset, it appears some of the start combinations and end combinations of coordinates are not pairing up correctly between latitude and longitude. I went back to the original datasets pulled from the DOT website and it appears that these lists are not always of length 4. Some of them go up to 14. With a lack of explanation on the website as to what these actually refer to as well as the inconsistency in lengths of this list, I'm forced to move on without this dataset. Any attempts to clean this up and make it usable extend quite far beyond the point of this project and course. Perhaps at a later time, I'll be able to come back and look into this further.
 
+####Section 3: 
+#####NYPD Accident Data
 
+When returning to the accident data after this, I realized that the sample set was not nearly large enough to include all the analyses I wanted to do. After quite a bit more digging, I found a dataset on the NYPD website that had over a million lines of data. This was much more suitible to the analyses and visualizations I wanted to use. In order to input this data into R, I needed to utilize an API key, save it locally as an RDS file, and then read it into R.
 
-** Make sure to go into an explanation of what other datasets I explored and why we chose the data we did.
-** Footnotes for further exploration: precipitation or weather data, location of tourist attractions in relation to these "at-risk" intersections or areas and in relation to being in a car or being on foot
+```{r NYPD_API_key}
+ny_uri <- "https://data.cityofnewyork.us/resource/qiz3-axqb.csv"
+ny_api <- validateUrl(ny_uri, "N2gcj5lI3SeIYCzuSMIGrZldx")
+ny_df <- read.socrata(ny_api) %>% 
+  as_data_frame()
+saveRDS(object = ny_df, file = "data-raw/nypd_motor_vehicle_collisions.rds")
+ny_df <- readRDS("data-raw/nypd_motor_vehicle_collisions.rds")
+rm(ny_api, ny_uri)
+```
+
+For this dataset, a couple small corrections were needed for the type of data that was listed in the original file. The date field wasn't being read by R as a date so I used the lubridate package to fix that. There were also zeros listed in the latitude and longitude columns that needed to be changed to NAs. Lastly, there were blanks in the boroughs column that also needed to be change to NAs.
+
+```{r NYPD_Data_Wrangling}
+#Date
+ny_df$date_time <- paste(ny_df$date, ny_df$time, sep = " ")
+ny_df$date_time <- as.Date(ny_df$date_time, format = "%Y-%m-%d %H:%M")
+ny_df$date <- as.Date(ny_df$date, format = "%Y-%m-%d")
+#Latitude and Longitude
+ny_df$latitude[ny_df$latitude == 0] <- NA
+ny_df$longitude[ny_df$longitude == 0] <- NA
+#Boroughs
+ny_df$borough[ny_df$borough == ""] <- NA
+```
+
+After this, I wanted to see a few summaries of the file including preliminary graphs to identify any trends.
+
+```{r NYPD_Summaries}
+#Date Summary by Month
+ny_df$month <- month(ny_df$date_time)
+summary(month(ny_df$date_time))
+#Persons Injured by Year
+ggplot(data = ny_df, aes(x = date, y = number_of_persons_injured)) +
+  stat_summary(fun.y = sum, 
+               geom = "bar") + 
+  scale_x_date(labels = date_format("%Y-%m"),
+    date_breaks = "1 year")
+#Persons Killed by Year
+ggplot(data = ny_df, aes(x = date, y = number_of_persons_killed)) +
+  stat_summary(fun.y = sum, 
+               geom = "bar") + 
+  scale_x_date(labels = date_format("%Y-%m"),
+    date_breaks = "1 year")
+```
+
+After seeing those summary graphs, I wanted to break it down by year in order to identify any trends more specifically. The following graph shows the number of people injured each month with the different years colored.
+
+```{r NYPD_byYear}
+ny_df %>% filter(date < as.Date('2017-10-01')) %>% 
+  ggplot(aes(month(date, label = TRUE, abbr = TRUE), number_of_persons_injured,
+             group = factor(year(date)), colour = factor(year(date)))) +
+  stat_summary(fun.y = sum, geom = "line")
+```
+
+Breaking that down further by borough, it's interesting to see the differences in each place. This next graph shows the same distribution, but filtered to only include the Bronx.
+
+```{r NYPD_BronxByYear}
+ny_df %>% filter(date < as.Date('2017-10-01'), borough == "BRONX") %>% 
+  ggplot(aes(month(date, label = TRUE, abbr = TRUE), number_of_persons_injured,
+               group = factor(year(date)), colour = factor(year(date)))) +
+  stat_summary(fun.y = sum, geom = "line")
+```
+
+The dataset also includes the time of the day the accidents occurred. Breaking out the time and hour from the date column allows us to view the data by the time of the day. The following breakdown shows the sum of people injured by each hour of the day faceted by borough.
+
+```{r NYPD_byHour}
+ny_df$time <- hm(ny_df$time)
+ny_df$hour <- hour(ny_df$time)
+ny_df %>% filter(date < as.Date('2017-10-01')) %>% 
+  ggplot(aes(hour, number_of_persons_injured)) +
+  stat_summary(fun.y = sum, geom = "bar") +
+  facet_grid(. ~ borough)
+```
+
+The sum of the number of people injured is an interesting thing, but another way to look at this data would be through averages. On average, how many people were injured each month in each borough? However, with the total data in the form it is currently in, these numbers are very hard to come by. The next step in this process is to create summary data sets that take all of this into consideration and provide a better way of analyzing the data.
+
+There are a few other defining characteristics in this dataset including the zip code/borough, the type of vehicle, and the contributing factor. A good preliminary way to summarize this data is through tables. These three are put into tables below and ordered lowest to highest.
+
+```{r}
+boroughTable <- table(ny_df$borough)
+boroughTable[order(boroughTable)]
+vehicleTable <- table(ny_df$vehicle_type_code1)
+vehicleTable[order(vehicleTable)]
+factorTable <- table(ny_df$contributing_factor_vehicle_1)
+factorTable[order(factorTable)]
+```
+
+Usually, the most important contributors will be the top 5-10 categories depending on the distribution. There is an Unspecified category for the contributing factor and an Unknown in the vehicle table. As these do not give us any helpful trending information, they will be filtered out when we summarize the data.
