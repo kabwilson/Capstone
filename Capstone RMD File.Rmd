@@ -378,13 +378,29 @@ There are a few other defining characteristics in this dataset including the zip
 ```{r NYPD_tables}
 boroughTable <- table(ny_df$borough)
 boroughTable[order(boroughTable)]
-vehicleTable <- table(ny_df$vehicle_type_code1)
+vehicleTable <- table(tolower(ny_df$vehicle_type_code1))
+# use the head or the tail function - specify the number of rows and assign that to the vehicleTable so it only includes the top 10 or so - once it's ordered
 vehicleTable[order(vehicleTable)]
 factorTable <- table(ny_df$contributing_factor_vehicle_1)
 factorTable[order(factorTable)]
 ```
 
+# Include horizontal bar graph on the vehicle Table and factor Table - will need to put into dataframe format to do this in ggplot - good segue into picking the top 5 or 10 categories
+# May not need to use coodflip for this as ggplot now accepts categorical variables on the y-axis
+# maybe use the Cleveland dot plot for this instead of a bar graph:
+library(ggplot2)
+
+mpg %>% 
+  group_by(trans) %>% 
+  summarize(cty = mean(cty)) %>% 
+  arrange(cty) %>% 
+  mutate(trans = factor(trans, levels = unique(trans))) %>% 
+  ggplot(aes(x = cty, y = trans)) +
+  geom_point()
+
 Usually, the most important contributors will be the top 5-10 categories depending on the distribution. There is an Unspecified category for the contributing factor and an Unknown in the vehicle table. As these do not give us any helpful trending information, they will be filtered out when we summarize the data.
+
+#####Summary Datasets
 
 The first summary I would like to see is over the boroughs. There are two different null values I want to account for, the NA in the borough and the zeros in the number of persons injured/killed. To summarize correctly, I would need to apply the filters first to each individual dataset, run the summarise function, and then do a full join afterwards.
 
@@ -432,3 +448,4 @@ rm(NPI_bydate, NPK_bydate)
 mmyyyy_summary
 ```
 
+# need to made a date out of the month and year and then graph it including facets by borough
