@@ -25,6 +25,8 @@ library(jsonlite)
 library(lubridate)
 library(RSocrata)
 library(scales)
+library(qcc)
+library(stats)
 ```
 
 The New York City Department of Transportation website has open data available to the public with historical records of motor vehicle accidents. Two of these files have recorded all fatalities and injuries from 2011 to 2016. These files are in json format which can be directly read into R.
@@ -308,7 +310,7 @@ ny_df <- readRDS("data-raw/nypd_motor_vehicle_collisions.rds")
 rm(ny_api, ny_uri)
 ```
 
-For this dataset, a couple small corrections were needed for the type of data that was listed in the original file. The date field wasn't being read by R as a date so I used the lubridate package to fix that. There were also zeros listed in the latitude and longitude columns that needed to be changed to NAs. Lastly, there were blanks in the boroughs column that also needed to be change to NAs.
+For this dataset, a couple small corrections were needed for the type of data that was listed in the original file. The date field wasn't being read by R as a date so I used the lubridate package to fix that. There were also zeros listed in the latitude and longitude columns that needed to be changed to NAs. Lastly, there were blanks in the boroughs column that also needed to be change to NAs. I also included a subset of the data to encompass all of 2013 - 2017.
 
 ```{r NYPD_Data_Wrangling}
 #Date
@@ -320,6 +322,8 @@ ny_df$latitude[ny_df$latitude == 0] <- NA
 ny_df$longitude[ny_df$longitude == 0] <- NA
 #Boroughs
 ny_df$borough[ny_df$borough == ""] <- NA
+#Subset the data
+ny_df <- subset(ny_df, date > "2012-12-31" & date < "2018-01-01")
 ```
 
 After this, I wanted to see a few summaries of the file including preliminary graphs to identify any trends.
@@ -342,10 +346,27 @@ ggplot(data = ny_df, aes(x = date, y = number_of_persons_killed)) +
     date_breaks = "1 year")
 ```
 
-After seeing those summary graphs, I wanted to break it down by year in order to identify any trends more specifically. The following graph shows the number of people injured each month with the different years colored.
+Seeing those summary graphs, I wanted to make sure that there wasn't any seasonality that was impacting the data. In the stats package loaded at the beginning of this report, there are a few functions that can assist with this. "stl" uses a vector over a time series and removes any seasonality that may be part of the dataset. I first had to take the vector that needed analyzing and put it in a time series using the "ts" function. Within the ts() function, the frequency will be 365 since it is yearly and the start is in July of 2012. Due to the size of the data, this plot takes quite a while to run.
+
+```{r Injury_stl}
+#First on the injury data
+injury_ts <- ts(ny_df$number_of_persons_injured, frequency = 365, start = c(2013,1))
+injury_stl <- stl(injury_ts, s.window = "periodic")
+plot(injury_stl)
+```
+```{r Fatality_stl}
+#Then on the fatality data
+fatality_ts <- ts(ny_df$number_of_persons_killed, frequency = 365, start = c(2013,1))
+fatality_stl <- stl(fatality_ts, s.window = "periodic")
+plot(fatality_stl)
+```
+
+In these plots, you can see the black square of data in the seasonal section. This indicates that there is little to no seasonality in either of these vectors. Even though this was not what I was expecting to see, the result is interesting none the less. Although the weather would clearly be worse in the winter which we would expect to cause more accidents, perhaps this is offset by the influx of tourists seen in New York in the summer causing the seasonality to be negligable.
+
+Now that that has been established, I wanted to break it down by year in order to identify any trends more specifically. The following graph shows the number of people injured each month with the different years colored.
 
 ```{r NYPD_byYear}
-ny_df %>% filter(date < as.Date('2017-10-01')) %>% 
+ny_df %>% 
   ggplot(aes(month(date, label = TRUE, abbr = TRUE), number_of_persons_injured,
              group = factor(year(date)), colour = factor(year(date)))) +
   stat_summary(fun.y = sum, geom = "line")
@@ -354,18 +375,18 @@ ny_df %>% filter(date < as.Date('2017-10-01')) %>%
 Breaking that down further by borough, it's interesting to see the differences in each place. This next graph shows the same distribution, but filtered to only include the Bronx.
 
 ```{r NYPD_BronxByYear}
-ny_df %>% filter(date < as.Date('2017-10-01'), borough == "BRONX") %>% 
+ny_df %>% filter(date < as.Date('2017-07-01'), borough == "BRONX") %>% 
   ggplot(aes(month(date, label = TRUE, abbr = TRUE), number_of_persons_injured,
                group = factor(year(date)), colour = factor(year(date)))) +
   stat_summary(fun.y = sum, geom = "line")
 ```
 
-The dataset also includes the time of the day the accidents occurred. Breaking out the time and hour from the date column allows us to view the data by the time of the day. The following breakdown shows the sum of people injured by each hour of the day faceted by borough.
+The dataset also includes the time of the day the accidents occurred. Breaking out the time and hour from the date column allows us to view the data by the time of the day. The following breakdown shows the sum of people injured by each hour of the day faceted by borough and not including any data that has an NA as the borough.
 
 ```{r NYPD_byHour}
 ny_df$time <- hm(ny_df$time)
 ny_df$hour <- hour(ny_df$time)
-ny_df %>% filter(date < as.Date('2017-10-01')) %>% 
+ny_df %>% filter(date < as.Date('2017-10-01') & !is.na(borough)) %>% 
   ggplot(aes(hour, number_of_persons_injured)) +
   stat_summary(fun.y = sum, geom = "bar") +
   facet_grid(. ~ borough)
@@ -377,12 +398,14 @@ There are a few other defining characteristics in this dataset including the zip
 
 ```{r NYPD_tables}
 boroughTable <- table(ny_df$borough)
-boroughTable[order(boroughTable)]
+boroughTable <- boroughTable[order(boroughTable)]
 vehicleTable <- table(tolower(ny_df$vehicle_type_code1))
-# use the head or the tail function - specify the number of rows and assign that to the vehicleTable so it only includes the top 10 or so - once it's ordered
-vehicleTable[order(vehicleTable)]
-factorTable <- table(ny_df$contributing_factor_vehicle_1)
-factorTable[order(factorTable)]
+vehicleTable <- vehicleTable[order(vehicleTable)]
+tail(vehicleTable, 10)
+factorTable <- table(tolower(ny_df$contributing_factor_vehicle_1))
+factorTable <- factorTable[order(factorTable)]
+tail(factorTable, 10)
+#Need to check with Tom on how to not include the "Unspecified" category before using the tail() function to cut down the factorTable; same thing with "unknown" and "other" for the vehicleTable
 ```
 
 # Include horizontal bar graph on the vehicle Table and factor Table - will need to put into dataframe format to do this in ggplot - good segue into picking the top 5 or 10 categories
