@@ -156,3 +156,21 @@ ggplot(ny_summary, aes(x = longitude, y = latitude,
 
 # .exists - use an if/else statement to see if the file exists and choose where to read it from
 
+
+
+
+
+
+stl(ny_df, s.window = "periodic", na.action = na.exclude)
+#takes a time series object (ts) have to pass the part of the dataframe you want to use
+#and pass it through ts() and then take those results and put them into the stl() function
+injury_ts <- ts(ny_df$number_of_persons_injured, frequency = 365, start = c(2012,7))
+injury_stl <- stl(injury_ts, s.window = "periodic")
+plot(injury_stl)
+#if local data file exists (file.exists()) then load the data file with readRDS() else run
+#the code to get the data from the api and once you get the data and do the wrangling
+#you'll save it through saveRDS unless you use the readr package and then it's writeRDS
+#the readr function is a little faster
+fatality_ts <- ts(ny_df$number_of_persons_killed, frequency = 365, start = c(2012,7))
+fatality_stl <- stl(fatality_ts, s.window = "periodic")
+plot(fatality_stl)
